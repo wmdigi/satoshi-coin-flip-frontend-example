@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
-import { useSignAndExecuteTransactionBlock } from "@mysten/dapp-kit";
-import { TransactionBlock } from "@mysten/sui.js/transactions";
+import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import {
   Box,
   Container,
@@ -10,16 +10,15 @@ import {
   Button,
 } from "@radix-ui/themes";
 import { toast } from "react-toastify";
-import { MIST_PER_SUI } from "@mysten/sui.js/utils";
+import { MIST_PER_SUI } from "@mysten/sui/utils";
 
 import { PACKAGE_ID } from "../../constants";
-import { SuiTransactionBlockResponse } from "@mysten/sui.js/client";
 import { useFetchCounterNft } from "./useFetchCounterNft";
 import { HouseDataContext } from "../House/HouseDataContext";
 
 export function PlayerCreateGame() {
   const { mutate: execCreateGame, isLoading } =
-    useSignAndExecuteTransactionBlock();
+    useSignAndExecuteTransaction();
   const { data: counterNFTData } = useFetchCounterNft();
 
   const [guess, setGuess] = useState("");
@@ -38,33 +37,33 @@ export function PlayerCreateGame() {
           e.preventDefault();
 
           // Create new transaction block
-          const txb = new TransactionBlock();
+          const tx = new Transaction();
 
           // Player stake
-          const [stakeCoin] = txb.splitCoins(txb.gas, [
+          const [stakeCoin] = tx.splitCoins(tx.gas, [
             MIST_PER_SUI * BigInt(stake),
           ]);
 
           // Create the game with CounterNFT
-          txb.moveCall({
+          tx.moveCall({
             target: `${PACKAGE_ID}::single_player_satoshi::start_game`,
             arguments: [
-              txb.pure.string(guess),
-              txb.object(counterNFTData[0].data?.objectId!),
+              tx.pure.string(guess),
+              tx.object(counterNFTData[0].data?.objectId!),
               stakeCoin,
-              txb.object(houseDataId),
+              tx.object(houseDataId),
             ],
           });
 
           execCreateGame(
             {
-              transactionBlock: txb,
+              transaction: tx,
             },
             {
               onError: (err) => {
                 toast.error(err.message);
               },
-              onSuccess: (result: SuiTransactionBlockResponse) => {
+              onSuccess: (result) => {
                 toast.success(`Digest: ${result.digest}`);
               },
             },

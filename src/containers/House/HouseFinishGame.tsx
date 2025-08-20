@@ -1,12 +1,11 @@
 import {
-  useSignAndExecuteTransactionBlock,
+  useSignAndExecuteTransaction,
   useSuiClient,
 } from "@mysten/dapp-kit";
 import { useContext, useEffect } from "react";
 import { toast } from "react-toastify";
-import { TransactionBlock } from "@mysten/sui.js/transactions";
-import { SuiTransactionBlockResponse } from "@mysten/sui.js/client";
-import { bcs } from "@mysten/sui.js/bcs";
+import { Transaction } from "@mysten/sui/transactions";
+import { bcs } from "@mysten/sui/bcs";
 import { bls12_381 as bls } from "@noble/curves/bls12-381";
 import * as curveUtils from "@noble/curves/abstract/utils";
 
@@ -17,7 +16,7 @@ import { HouseDataContext } from "./HouseDataContext";
 // This component will help the House to automatically finish the game whenever new game is started
 export function HouseFinishGame() {
   const suiClient = useSuiClient();
-  const { mutate: execFinishGame } = useSignAndExecuteTransactionBlock();
+  const { mutate: execFinishGame } = useSignAndExecuteTransaction();
 
   const [housePrivHex] = useContext(HouseKeypairContext);
   const [houseDataId] = useContext(HouseDataContext);
@@ -46,24 +45,25 @@ export function HouseFinishGame() {
           );
 
           // Finish the game immediately after new game started
-          const txb = new TransactionBlock();
-          txb.moveCall({
+          const tx = new Transaction();
+          tx.moveCall({
             target: `${PACKAGE_ID}::single_player_satoshi::finish_game`,
             arguments: [
-              txb.pure.address(game_id),
-              txb.pure(bcs.vector(bcs.U8).serialize(houseSignedInput)),
-              txb.object(houseDataId),
+              tx.pure.address(game_id),
+              tx.pure(bcs.vector(bcs.U8).serialize(houseSignedInput)),
+              tx.object(houseDataId),
             ],
           });
+
           execFinishGame(
             {
-              transactionBlock: txb,
+              transaction: tx,
             },
             {
               onError: (err) => {
                 toast.error(err.message);
               },
-              onSuccess: (result: SuiTransactionBlockResponse) => {
+              onSuccess: (result) => {
                 toast.success(`Digest: ${result.digest}`);
               },
             },

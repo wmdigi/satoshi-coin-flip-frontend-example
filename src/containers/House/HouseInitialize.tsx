@@ -9,15 +9,15 @@ import {
   TextFieldInput,
   Callout,
 } from "@radix-ui/themes";
-import { TransactionBlock } from "@mysten/sui.js/transactions";
-import { MIST_PER_SUI } from "@mysten/sui.js/utils";
-import { bcs } from "@mysten/sui.js/bcs";
+import { Transaction } from "@mysten/sui/transactions";
+import { MIST_PER_SUI } from "@mysten/sui/utils";
+import { bcs } from "@mysten/sui/bcs";
 import * as curveUtils from "@noble/curves/abstract/utils";
 import { toast } from "react-toastify";
 
 import { HOUSECAP_ID, PACKAGE_ID } from "../../constants";
-import { useSignAndExecuteTransactionBlock } from "@mysten/dapp-kit";
-import { SuiTransactionBlockResponse } from "@mysten/sui.js/client";
+import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { SuiTransactionBlockResponse } from "@mysten/sui/client";
 import { HouseKeypairContext } from "./HouseKeypairContext";
 
 export function HouseInitialize() {
@@ -25,14 +25,20 @@ export function HouseInitialize() {
   const [houseDataId, setHouseDataId] = useState("");
 
   const [, getHousePubHex] = useContext(HouseKeypairContext);
+  const suiClient = useSuiClient();
 
-  // We have two options for signing and execute tx block:
-  // 1. `useSignAndExecuteTransactionBlock` is a React hook from `@mysten/dapp-kit`
-  // which utilize `SuiClient` from `@mysten/sui.js` behind the scene
-  // 2. Use `SuiClient` instance directly.
-  // We can obtain it through `useSuiClient` React hook from `@mysten/dapp-kit`
   const { mutate: execInitializeHouse, isLoading } =
-    useSignAndExecuteTransactionBlock();
+    useSignAndExecuteTransaction({
+      execute: async ({ bytes, signature }) =>
+        await suiClient.executeTransactionBlock({
+          transactionBlock: bytes,
+          signature,
+          options: {
+            // Select additional data to return
+            showObjectChanges: true,
+          },
+        }),
+    });
 
   return (
     <Container mb={"4"}>
@@ -54,22 +60,22 @@ export function HouseInitialize() {
         onSubmit={(e) => {
           e.preventDefault();
 
-          // Create new transaction block
-          const txb = new TransactionBlock();
+          // Create new transaction
+          const tx = new Transaction();
           // Split gas coin into house stake coin
           // SDK will take care for us abstracting away of up-front coin selections
-          const [houseStakeCoin] = txb.splitCoins(txb.gas, [
+          const [houseStakeCoin] = tx.splitCoins(tx.gas, [
             MIST_PER_SUI * BigInt(houseStake),
           ]);
           // Calling smart contract function
-          txb.moveCall({
+          tx.moveCall({
             target: `${PACKAGE_ID}::house_data::initialize_house_data`,
             arguments: [
-              txb.object(HOUSECAP_ID),
+              tx.object(HOUSECAP_ID),
               houseStakeCoin,
               // This argument is not an on-chain object, hence, we must serialize it using `bcs`
               // https://sui-typescript-docs.vercel.app/typescript/transaction-building/basics#pure-values
-              txb.pure(
+              tx.pure(
                 bcs
                   .vector(bcs.U8)
                   .serialize(curveUtils.hexToBytes(getHousePubHex())),
@@ -79,10 +85,7 @@ export function HouseInitialize() {
 
           execInitializeHouse(
             {
-              transactionBlock: txb,
-              options: {
-                showObjectChanges: true,
-              },
+              transaction: tx,
             },
             {
               onError: (err) => {

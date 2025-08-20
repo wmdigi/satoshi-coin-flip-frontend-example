@@ -1,13 +1,13 @@
 import { Box, Button, Container, Heading, Text } from "@radix-ui/themes";
 import { useFetchCounterNft } from "./useFetchCounterNft";
-import { useSignAndExecuteTransactionBlock } from "@mysten/dapp-kit";
-import { TransactionBlock } from "@mysten/sui.js/transactions";
+import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { toast } from "react-toastify";
 import { PACKAGE_ID } from "../../constants";
 
 export function PlayerListCounterNft() {
   const { data, isLoading, error, refetch } = useFetchCounterNft();
-  const { mutate: execCreateCounterNFT } = useSignAndExecuteTransactionBlock();
+  const { mutate: execCreateCounterNFT } = useSignAndExecuteTransaction();
 
   return (
     <Container mb={"4"}>
@@ -52,18 +52,18 @@ export function PlayerListCounterNft() {
           ml={"3"}
           disabled={isLoading}
           onClick={() => {
-            const txb = new TransactionBlock();
-            const [counterNft] = txb.moveCall({
+            const tx = new Transaction();
+            const [counterNft] = tx.moveCall({
               target: `${PACKAGE_ID}::counter_nft::mint`,
             });
-            txb.moveCall({
+            tx.moveCall({
               target: `${PACKAGE_ID}::counter_nft::transfer_to_sender`,
               arguments: [counterNft],
             });
 
             execCreateCounterNFT(
               {
-                transactionBlock: txb,
+                transaction: tx,
               },
               {
                 onError: (err) => {
